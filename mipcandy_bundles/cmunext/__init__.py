@@ -1,0 +1,3 @@
+from mipcandy_bundles.cmunext.cmunext import CMUNeXt, build_cmunext
+from mipcandy_bundles.cmunext.cmunext_trainer import CMUNeXtTrainer
+from mipcandy_bundles.cmunext.cmunext_predictor import CMUNeXtPredictor
