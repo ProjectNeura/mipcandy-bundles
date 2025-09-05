@@ -65,7 +65,7 @@ class UNetOut(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, in_ch: int, num_classes: int, *, bilinear: bool = False, downsample_op: LayerT = LayerT(UNetDownsample),
+    def __init__(self, in_ch: int, num_classes: int, *, bilinear: bool = False, downsample_op: LayerT = LayerT(UNetDownsample), upsample_op: LayerT = LayerT(UNetUpsample),
                  features: List[int]) -> None:
         super().__init__()
         
@@ -81,13 +81,13 @@ class UNet(nn.Module):
         factor = 2 if bilinear else 1
         self.down7: nn.Module = UNetDownsample(features[6], features[7] // factor)
         
-        self.up1: nn.Module = UNetUpsample(features[7], features[6], features[6] // factor, bilinear=bilinear)
-        self.up2: nn.Module = UNetUpsample(features[6] // factor, features[5], features[5] // factor, bilinear=bilinear)
-        self.up3: nn.Module = UNetUpsample(features[5] // factor, features[4], features[4] // factor, bilinear=bilinear)
-        self.up4: nn.Module = UNetUpsample(features[4] // factor, features[3], features[3] // factor, bilinear=bilinear)
-        self.up5: nn.Module = UNetUpsample(features[3] // factor, features[2], features[2] // factor, bilinear=bilinear)
-        self.up6: nn.Module = UNetUpsample(features[2] // factor, features[1], features[1] // factor, bilinear=bilinear)
-        self.up7: nn.Module = UNetUpsample(features[1] // factor, features[0], features[0], bilinear=bilinear)
+        self.up1: nn.Module = upsample_op.assemble(features[7], features[6], features[6] // factor, bilinear=bilinear)
+        self.up2: nn.Module = upsample_op.assemble(features[6] // factor, features[5], features[5] // factor, bilinear=bilinear)
+        self.up3: nn.Module = upsample_op.assemble(features[5] // factor, features[4], features[4] // factor, bilinear=bilinear)
+        self.up4: nn.Module = upsample_op.assemble(features[4] // factor, features[3], features[3] // factor, bilinear=bilinear)
+        self.up5: nn.Module = upsample_op.assemble(features[3] // factor, features[2], features[2] // factor, bilinear=bilinear)
+        self.up6: nn.Module = upsample_op.assemble(features[2] // factor, features[1], features[1] // factor, bilinear=bilinear)
+        self.up7: nn.Module = upsample_op.assemble(features[1] // factor, features[0], features[0], bilinear=bilinear)
         
         self.out: nn.Module = UNetOut(features[0], num_classes)
 
