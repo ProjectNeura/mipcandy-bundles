@@ -110,3 +110,10 @@ class UNet(nn.Module):
         x = self.up7(x, x1)
         
         return self.out(x)
+
+if __name__ == "__main__":
+    from mipcandy import sanity_check
+
+    model = UNet(in_ch=3, num_classes=1, bilinear=False, features=[32, 64, 128, 256, 512, 512, 512, 512])
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    sanity_check(model=model, input_shape=(1, 1, 244, 244), device=device)
