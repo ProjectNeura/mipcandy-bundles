@@ -7,7 +7,7 @@ from typing import List
 class UNetDoubleConv(nn.Module):
     def __init__(self, in_ch: int, out_ch: int, *, mid_ch: int | None = None,
                  norm: LayerT = LayerT(nn.InstanceNorm2d, num_features="in_ch", affine=True),
-                 act: LayerT = LayerT(nn.LeakyReLU, inplace=True), conv_bias: bool = True) -> None:
+                 act: LayerT = LayerT(nn.ReLU, inplace=True), conv_bias: bool = True) -> None:
         super().__init__()
         if mid_ch is None:
             mid_ch = out_ch
