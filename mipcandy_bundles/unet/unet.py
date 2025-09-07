@@ -44,11 +44,18 @@ class UNetDownsample(nn.Module):
 class UNetUpsample(nn.Module):
     def __init__(self, up_ch: int, skip_ch: int, out_ch: int, *, conv_op: Type[nn.Module] = nn.Conv2d, norm_op: Type[nn.Module] = nn.InstanceNorm2d, bilinear: bool = True) -> None:
         super().__init__()
+        if conv_op == nn.Conv3d:
+            transpose_conv_op = nn.ConvTranspose3d
+            upsample_mode = "trilinear"
+        else:
+            transpose_conv_op = nn.ConvTranspose2d
+            upsample_mode = "bilinear"
+            
         if bilinear:
-            self.upsample: nn.Module = nn.Upsample(scale_factor=2, mode="bilinear", align_corners=True)
+            self.upsample: nn.Module = nn.Upsample(scale_factor=2, mode=upsample_mode, align_corners=True)
             self.conv: nn.Module = UNetDoubleConv(up_ch + skip_ch, out_ch, conv_op=conv_op, norm=LayerT(norm_op, num_features=out_ch, affine=True))
         else:
-            self.upsample: nn.Module = nn.ConvTranspose2d(up_ch, up_ch // 2, kernel_size=2, stride=2)
+            self.upsample: nn.Module = transpose_conv_op(up_ch, up_ch // 2, kernel_size=2, stride=2)
             self.conv: nn.Module = UNetDoubleConv(up_ch // 2 + skip_ch, out_ch, conv_op=conv_op, norm=LayerT(norm_op, num_features=out_ch, affine=True))
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
@@ -68,56 +75,82 @@ class UNetOut(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, in_ch: int, num_classes: int, *, bilinear: bool = False, conv_op: Type[nn.Module] = nn.Conv2d, 
-                 downsample_op: LayerT = LayerT(UNetDownsample), upsample_op: LayerT = LayerT(UNetUpsample),
-                 norm_op: Type[nn.Module] = nn.InstanceNorm2d, max_pool_op: Type[nn.Module] = nn.MaxPool2d, features: List[int]) -> None:
+    def __init__(self, in_ch: int, num_classes: int, *, bilinear: bool = False, 
+                 conv_op: Type[nn.Module] = nn.Conv2d, 
+                 downsample_op: LayerT = LayerT(UNetDownsample), 
+                 upsample_op: LayerT = LayerT(UNetUpsample),
+                 norm_op: Type[nn.Module] = nn.InstanceNorm2d, 
+                 max_pool_op: Type[nn.Module] = nn.MaxPool2d, 
+                 features: List[int]) -> None:
         super().__init__()
         
         self.features = features
-
-        self.inc: nn.Module = UNetDoubleConv(in_ch, features[0], conv_op=conv_op, norm=LayerT(norm_op, num_features=features[0], affine=True))
-        self.down1: nn.Module = downsample_op.assemble(features[0], features[1], conv_op=conv_op, norm_op=norm_op, max_pool_op=max_pool_op)
-        self.down2: nn.Module = downsample_op.assemble(features[1], features[2], conv_op=conv_op, norm_op=norm_op, max_pool_op=max_pool_op)
-        self.down3: nn.Module = downsample_op.assemble(features[2], features[3], conv_op=conv_op, norm_op=norm_op, max_pool_op=max_pool_op)
-        self.down4: nn.Module = downsample_op.assemble(features[3], features[4], conv_op=conv_op, norm_op=norm_op, max_pool_op=max_pool_op)
-        self.down5: nn.Module = downsample_op.assemble(features[4], features[5], conv_op=conv_op, norm_op=norm_op, max_pool_op=max_pool_op)
-        self.down6: nn.Module = downsample_op.assemble(features[5], features[6], conv_op=conv_op, norm_op=norm_op, max_pool_op=max_pool_op)
+        self.n_layers = len(features) - 1
         factor = 2 if bilinear else 1
-        self.down7: nn.Module = UNetDownsample(features[6], features[7] // factor, conv_op=conv_op, norm_op=norm_op, max_pool_op=max_pool_op)
-        
-        self.up1: nn.Module = upsample_op.assemble(features[7], features[6], features[6] // factor, conv_op=conv_op, norm_op=norm_op, bilinear=bilinear)
-        self.up2: nn.Module = upsample_op.assemble(features[6] // factor, features[5], features[5] // factor, conv_op=conv_op, norm_op=norm_op, bilinear=bilinear)
-        self.up3: nn.Module = upsample_op.assemble(features[5] // factor, features[4], features[4] // factor, conv_op=conv_op, norm_op=norm_op, bilinear=bilinear)
-        self.up4: nn.Module = upsample_op.assemble(features[4] // factor, features[3], features[3] // factor, conv_op=conv_op, norm_op=norm_op, bilinear=bilinear)
-        self.up5: nn.Module = upsample_op.assemble(features[3] // factor, features[2], features[2] // factor, conv_op=conv_op, norm_op=norm_op, bilinear=bilinear)
-        self.up6: nn.Module = upsample_op.assemble(features[2] // factor, features[1], features[1] // factor, conv_op=conv_op, norm_op=norm_op, bilinear=bilinear)
-        self.up7: nn.Module = upsample_op.assemble(features[1] // factor, features[0], features[0], conv_op=conv_op, norm_op=norm_op, bilinear=bilinear)
 
-        self.out: nn.Module = UNetOut(features[0], num_classes)
+        self.inc = UNetDoubleConv(in_ch, features[0], conv_op=conv_op, 
+                                 norm=LayerT(norm_op, num_features=features[0], affine=True))
+        
+        self.downs = nn.ModuleList()
+        for i in range(self.n_layers - 1):
+            self.downs.append(
+                downsample_op.assemble(features[i], features[i+1], 
+                                     conv_op=conv_op, norm_op=norm_op, max_pool_op=max_pool_op)
+            )
+        
+        self.downs.append(
+            UNetDownsample(features[-2], features[-1] // factor, 
+                          conv_op=conv_op, norm_op=norm_op, max_pool_op=max_pool_op)
+        )
+        
+        self.ups = nn.ModuleList()
+        for i in range(self.n_layers):
+            if i == 0:
+                self.ups.append(
+                    upsample_op.assemble(features[-1], features[-2], features[-2] // factor,
+                                       conv_op=conv_op, norm_op=norm_op, bilinear=bilinear)
+                )
+            elif i == self.n_layers - 1:
+                self.ups.append(
+                    upsample_op.assemble(features[1] // factor, features[0], features[0],
+                                       conv_op=conv_op, norm_op=norm_op, bilinear=bilinear)
+                )
+            else:
+                idx = self.n_layers - 1 - i
+                self.ups.append(
+                    upsample_op.assemble(features[idx+1] // factor, features[idx], features[idx] // factor,
+                                       conv_op=conv_op, norm_op=norm_op, bilinear=bilinear)
+                )
+
+        self.out = UNetOut(features[0], num_classes, conv_op=conv_op)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        x1 = self.inc(x)
-        x2 = self.down1(x1)
-        x3 = self.down2(x2)
-        x4 = self.down3(x3)
-        x5 = self.down4(x4)
-        x6 = self.down5(x5)
-        x7 = self.down6(x6)
-        x8 = self.down7(x7)
+        skip_features = []
         
-        x = self.up1(x8, x7)
-        x = self.up2(x, x6)
-        x = self.up3(x, x5)
-        x = self.up4(x, x4)
-        x = self.up5(x, x3)
-        x = self.up6(x, x2)
-        x = self.up7(x, x1)
+        x = self.inc(x)
+        skip_features.append(x)
+        
+        for down in self.downs[:-1]:
+            x = down(x)
+            skip_features.append(x)
+        
+        x = self.downs[-1](x)
+        
+        for i, up in enumerate(self.ups):
+            skip_idx = len(skip_features) - 1 - i
+            x = up(x, skip_features[skip_idx])
         
         return self.out(x)
 
 if __name__ == "__main__":
     from mipcandy import sanity_check
 
+    # 2D Sanity Check
     model = UNet(in_ch=3, num_classes=1, conv_op=nn.Conv2d, bilinear=False, features=[32, 64, 128, 256, 512, 512, 512, 512])
     device = "cuda" if torch.cuda.is_available() else "cpu"
     sanity_check(model=model, input_shape=(1, 3, 256, 256), device=device)
+    
+    # 3D Sanity Check
+    model = UNet(in_ch=4, num_classes=1, conv_op=nn.Conv3d, norm_op=nn.InstanceNorm3d, max_pool_op=nn.MaxPool3d, bilinear=False, features=[32, 64, 128, 256, 320])
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+    sanity_check(model=model, input_shape=(1, 4, 64, 192, 192), device=device)
