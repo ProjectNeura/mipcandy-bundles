@@ -12,12 +12,10 @@ class UNetDoubleConv(nn.Module):
         if mid_ch is None:
             mid_ch = out_ch
         self.conv1: nn.Module = conv.assemble(in_ch, mid_ch, kernel_size=3, padding=1, bias=conv_bias)
-        # self.norm1: nn.Module = norm.assemble(in_ch=mid_ch)
-        self.norm1: nn.Module = norm.assemble()
+        self.norm1: nn.Module = norm.assemble(in_ch=mid_ch)
         self.act1: nn.Module = act.assemble()
         self.conv2: nn.Module = conv.assemble(mid_ch, out_ch, kernel_size=3, padding=1, bias=conv_bias)
-        # self.norm2: nn.Module = norm.assemble(in_ch=out_ch)
-        self.norm2: nn.Module = norm.assemble()
+        self.norm2: nn.Module = norm.assemble(in_ch=out_ch)
         self.act2: nn.Module = act.assemble()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
