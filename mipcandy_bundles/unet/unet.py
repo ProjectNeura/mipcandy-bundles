@@ -52,6 +52,8 @@ class UNetUpsample(nn.Module):
         elif num_dims == 3:
             transpose_conv_op = nn.ConvTranspose3d
             upsample_mode = "trilinear"
+        else:
+            raise ValueError("num_dims must be 2 or 3")
 
         if bilinear:
             self.upsample: nn.Module = nn.Upsample(scale_factor=2, mode=upsample_mode, align_corners=True)
