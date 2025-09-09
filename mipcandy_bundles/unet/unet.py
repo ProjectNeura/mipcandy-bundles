@@ -45,11 +45,11 @@ class UNetUpsample(nn.Module):
                  bilinear: bool = True, num_dims: Literal[2, 3]) -> None:
         super().__init__()
         if num_dims == 2:
-            transpose_conv = nn.ConvTranspose2d
-            upsample_mode = "bilinear"
+            transpose_conv: nn.Module = nn.ConvTranspose2d
+            upsample_mode: str = "bilinear"
         elif num_dims == 3:
-            transpose_conv = nn.ConvTranspose3d
-            upsample_mode = "trilinear"
+            transpose_conv: nn.Module = nn.ConvTranspose3d
+            upsample_mode: str = "trilinear"
         else:
             raise ValueError("num_dims must be 2 or 3")
 
@@ -85,15 +85,15 @@ class UNet(nn.Module):
                  max_pool: LayerT = LayerT(nn.MaxPool2d), 
                  features: list[int]) -> None:
         super().__init__()
-        
-        self.features = features
-        self.n_layers = len(features) - 1
-        factor = 2 if bilinear else 1
 
-        self.inc = UNetDoubleConv(in_ch, features[0], conv=conv, 
+        self.features: list[int] = features
+        self.n_layers: int = len(features) - 1
+        factor: int = 2 if bilinear else 1
+
+        self.inc: nn.Module = UNetDoubleConv(in_ch, features[0], conv=conv, 
                                  norm=LayerT(norm.m, num_features=features[0], affine=True))
         
-        self.downs = nn.ModuleList()
+        self.downs: nn.ModuleList = nn.ModuleList()
         for i in range(self.n_layers - 1):
             self.downs.append(
                 downsample.assemble(features[i], features[i+1], 
@@ -105,7 +105,7 @@ class UNet(nn.Module):
                           conv=conv, norm=norm, max_pool=max_pool)
         )
         
-        self.ups = nn.ModuleList()
+        self.ups: nn.ModuleList = nn.ModuleList()
         for i in range(self.n_layers):
             if i == 0:
                 self.ups.append(
