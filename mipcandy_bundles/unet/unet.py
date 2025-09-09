@@ -12,10 +12,10 @@ class UNetDoubleConv(nn.Module):
         if mid_ch is None:
             mid_ch = out_ch
         self.conv1: nn.Module = conv.assemble(in_ch, mid_ch, kernel_size=3, padding=1, bias=conv_bias)
-        self.norm1: nn.Module = norm.assemble()
+        self.norm1: nn.Module = norm.assemble(in_ch=mid_ch)
         self.act1: nn.Module = act.assemble()
         self.conv2: nn.Module = conv.assemble(mid_ch, out_ch, kernel_size=3, padding=1, bias=conv_bias)
-        self.norm2: nn.Module = norm.assemble()
+        self.norm2: nn.Module = norm.assemble(in_ch=out_ch)
         self.act2: nn.Module = act.assemble()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -33,7 +33,7 @@ class UNetDownsample(nn.Module):
                  norm: LayerT = LayerT(nn.InstanceNorm2d), max_pool: LayerT = LayerT(nn.MaxPool2d)) -> None:
         super().__init__()
         self.max_pool: nn.Module = max_pool.assemble(kernel_size)
-        self.conv: nn.Module = UNetDoubleConv(in_ch, out_ch, conv=conv, norm=LayerT(norm.m, num_features=out_ch, affine=True))
+        self.conv: nn.Module = UNetDoubleConv(in_ch, out_ch, conv=conv, norm=LayerT(norm.m, num_features="in_ch", affine=True))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.conv(self.max_pool(x))
@@ -55,10 +55,10 @@ class UNetUpsample(nn.Module):
 
         if bilinear:
             self.upsample: nn.Module = nn.Upsample(scale_factor=2, mode=upsample_mode, align_corners=True)
-            self.conv: nn.Module = UNetDoubleConv(up_ch + skip_ch, out_ch, conv=conv, norm=LayerT(norm.m, num_features=out_ch, affine=True))
+            self.conv: nn.Module = UNetDoubleConv(up_ch + skip_ch, out_ch, conv=conv, norm=LayerT(norm.m, num_features="in_ch", affine=True))
         else:
             self.upsample: nn.Module = transpose_conv.assemble(up_ch, up_ch // 2, kernel_size=2, stride=2)
-            self.conv: nn.Module = UNetDoubleConv(up_ch // 2 + skip_ch, out_ch, conv=conv, norm=LayerT(norm.m, num_features=out_ch, affine=True))
+            self.conv: nn.Module = UNetDoubleConv(up_ch // 2 + skip_ch, out_ch, conv=conv, norm=LayerT(norm.m, num_features="in_ch", affine=True))
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
         x1 = self.upsample(x1)
@@ -91,7 +91,7 @@ class UNet(nn.Module):
         factor: int = 2 if bilinear else 1
 
         self.inc: nn.Module = UNetDoubleConv(in_ch, features[0], conv=conv, 
-                                 norm=LayerT(norm.m, num_features=features[0], affine=True))
+                                 norm=LayerT(norm.m, num_features="in_ch", affine=True))
         
         self.downs: nn.ModuleList = nn.ModuleList()
         for i in range(self.n_layers - 1):
