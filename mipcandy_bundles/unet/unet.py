@@ -12,10 +12,10 @@ class UNetDoubleConv(nn.Module):
         if mid_ch is None:
             mid_ch = out_ch
         self.conv1: nn.Module = conv.assemble(in_ch, mid_ch, kernel_size=3, padding=1, bias=conv_bias)
-        self.norm1: nn.Module = norm.assemble(in_ch=mid_ch)
+        self.norm1: nn.Module = norm.assemble()
         self.act1: nn.Module = act.assemble()
         self.conv2: nn.Module = conv.assemble(mid_ch, out_ch, kernel_size=3, padding=1, bias=conv_bias)
-        self.norm2: nn.Module = norm.assemble(in_ch=out_ch)
+        self.norm2: nn.Module = norm.assemble()
         self.act2: nn.Module = act.assemble()
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -45,10 +45,10 @@ class UNetUpsample(nn.Module):
                  bilinear: bool = True, num_dims: Literal[2, 3]) -> None:
         super().__init__()
         if num_dims == 2:
-            transpose_conv: nn.Module = nn.ConvTranspose2d
+            transpose_conv: LayerT = LayerT(nn.ConvTranspose2d)
             upsample_mode: str = "bilinear"
         elif num_dims == 3:
-            transpose_conv: nn.Module = nn.ConvTranspose3d
+            transpose_conv: LayerT = LayerT(nn.ConvTranspose3d)
             upsample_mode: str = "trilinear"
         else:
             raise ValueError("num_dims must be 2 or 3")
@@ -57,7 +57,7 @@ class UNetUpsample(nn.Module):
             self.upsample: nn.Module = nn.Upsample(scale_factor=2, mode=upsample_mode, align_corners=True)
             self.conv: nn.Module = UNetDoubleConv(up_ch + skip_ch, out_ch, conv=conv, norm=LayerT(norm.m, num_features=out_ch, affine=True))
         else:
-            self.upsample: nn.Module = transpose_conv(up_ch, up_ch // 2, kernel_size=2, stride=2)
+            self.upsample: nn.Module = transpose_conv.assemble(up_ch, up_ch // 2, kernel_size=2, stride=2)
             self.conv: nn.Module = UNetDoubleConv(up_ch // 2 + skip_ch, out_ch, conv=conv, norm=LayerT(norm.m, num_features=out_ch, affine=True))
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
@@ -127,7 +127,7 @@ class UNet(nn.Module):
         self.out = UNetOut(features[0], num_classes, conv=conv)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
-        skip_features = []
+        skip_features: list[torch.Tensor] = []
         
         x = self.inc(x)
         skip_features.append(x)
