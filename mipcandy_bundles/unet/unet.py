@@ -78,18 +78,18 @@ class UNet(nn.Module):
     def __init__(self, in_ch: int, num_classes: int, hidden_chs: Sequence[int], *, num_dims: Literal[2, 3] = 2,
                  linear: bool = False, conv: LayerT = LayerT(nn.Conv2d), downsample: LayerT = LayerT(UNetDownsample),
                  upsample: LayerT = LayerT(UNetUpsample), norm: LayerT = LayerT(nn.InstanceNorm2d),
-                 max_pool: LayerT = LayerT(nn.MaxPool2d)) -> None:
+                 max_pool: LayerT = LayerT(nn.MaxPool2d), conv_block: LayerT = LayerT(UNetDoubleConv)) -> None:
         super().__init__()
         self.hidden_chs: Sequence[int] = hidden_chs
         self.num_layers = len(hidden_chs) - 1
         factor = 2 if linear else 1
-        self.inc: nn.Module = UNetDoubleConv(in_ch, hidden_chs[0], conv=conv, norm=norm)
+        self.inc: nn.Module = conv_block.assemble(in_ch, hidden_chs[0], conv=conv, norm=norm)
         self.downs: nn.ModuleList = nn.ModuleList()
         for i in range(self.num_layers - 1):
             self.downs.append(downsample.assemble(
                 hidden_chs[i], hidden_chs[i + 1], conv=conv, norm=norm, max_pool=max_pool
             ))
-        self.downs.append(UNetDownsample(
+        self.downs.append(downsample.assemble(
             hidden_chs[-2], hidden_chs[-1] // factor, conv=conv, norm=norm, max_pool=max_pool
         ))
         self.ups: nn.ModuleList = nn.ModuleList()
