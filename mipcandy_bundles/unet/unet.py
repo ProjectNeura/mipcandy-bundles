@@ -30,11 +30,11 @@ class UNetDoubleConv(nn.Module):
 
 class UNetDownsample(nn.Module):
     def __init__(self, in_ch: int, out_ch: int, *, kernel_size: int = 2, conv: LayerT = LayerT(nn.Conv2d),
-                 norm: LayerT = LayerT(nn.InstanceNorm2d, num_features="in_ch"),
+                 norm: LayerT = LayerT(nn.InstanceNorm2d, num_features="in_ch"), conv_block: LayerT = LayerT(UNetDoubleConv), 
                  max_pool: LayerT = LayerT(nn.MaxPool2d)) -> None:
         super().__init__()
         self.max_pool: nn.Module = max_pool.assemble(kernel_size)
-        self.conv: nn.Module = UNetDoubleConv(in_ch, out_ch, conv=conv, norm=norm)
+        self.conv: nn.Module = conv_block.assemble(in_ch, out_ch, conv=conv, norm=norm)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.conv(self.max_pool(x))
@@ -42,8 +42,8 @@ class UNetDownsample(nn.Module):
 
 class UNetUpsample(nn.Module):
     def __init__(self, up_ch: int, skip_ch: int, out_ch: int, *, conv: LayerT = LayerT(nn.Conv2d),
-                 norm: LayerT = LayerT(nn.InstanceNorm2d, num_features="in_ch"), linear: bool = True,
-                 num_dims: Literal[2, 3] = 2) -> None:
+                 norm: LayerT = LayerT(nn.InstanceNorm2d, num_features="in_ch"), conv_block: LayerT = LayerT(UNetDoubleConv), 
+                 linear: bool = True, num_dims: Literal[2, 3] = 2) -> None:
         super().__init__()
         if num_dims == 2:
             transpose_conv = LayerT(nn.ConvTranspose2d)
@@ -53,10 +53,10 @@ class UNetUpsample(nn.Module):
             upsample_mode = "trilinear"
         if linear:
             self.upsample: nn.Module = nn.Upsample(scale_factor=2, mode=upsample_mode, align_corners=True)
-            self.conv: nn.Module = UNetDoubleConv(up_ch + skip_ch, out_ch, conv=conv, norm=norm)
+            self.conv: nn.Module = conv_block.assemble(up_ch + skip_ch, out_ch, conv=conv, norm=norm)
         else:
             self.upsample: nn.Module = transpose_conv.assemble(up_ch, up_ch // 2, kernel_size=2, stride=2)
-            self.conv: nn.Module = UNetDoubleConv(up_ch // 2 + skip_ch, out_ch, conv=conv, norm=norm)
+            self.conv: nn.Module = conv_block.assemble(up_ch // 2 + skip_ch, out_ch, conv=conv, norm=norm)
 
     def forward(self, x1: torch.Tensor, x2: torch.Tensor) -> torch.Tensor:
         x1 = self.upsample(x1)
@@ -87,28 +87,30 @@ class UNet(nn.Module):
         self.downs: nn.ModuleList = nn.ModuleList()
         for i in range(self.num_layers - 1):
             self.downs.append(downsample.assemble(
-                hidden_chs[i], hidden_chs[i + 1], conv=conv, norm=norm, max_pool=max_pool
+                hidden_chs[i], hidden_chs[i + 1], conv=conv, norm=norm, 
+                max_pool=max_pool, conv_block=conv_block
             ))
         self.downs.append(downsample.assemble(
-            hidden_chs[-2], hidden_chs[-1] // factor, conv=conv, norm=norm, max_pool=max_pool
+            hidden_chs[-2], hidden_chs[-1] // factor, conv=conv, norm=norm, 
+            max_pool=max_pool, conv_block=conv_block
         ))
         self.ups: nn.ModuleList = nn.ModuleList()
         for i in range(self.num_layers):
             if i == 0:
                 self.ups.append(upsample.assemble(
                     hidden_chs[-1], hidden_chs[-2], hidden_chs[-2] // factor, conv=conv, norm=norm, linear=linear,
-                    num_dims=num_dims
+                    num_dims=num_dims, conv_block=conv_block
                 ))
             elif i == self.num_layers - 1:
                 self.ups.append(upsample.assemble(
                     hidden_chs[1] // factor, hidden_chs[0], hidden_chs[0], conv=conv, norm=norm, linear=linear,
-                    num_dims=num_dims
+                    num_dims=num_dims, conv_block=conv_block
                 ))
             else:
                 idx = self.num_layers - 1 - i
                 self.ups.append(upsample.assemble(
                     hidden_chs[idx + 1] // factor, hidden_chs[idx], hidden_chs[idx] // factor, conv=conv, norm=norm,
-                    linear=linear, num_dims=num_dims
+                    linear=linear, num_dims=num_dims, conv_block=conv_block
                 ))
         self.out: nn.Module = UNetOut(hidden_chs[0], num_classes, conv=conv)
 

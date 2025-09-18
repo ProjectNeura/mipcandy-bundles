@@ -2,7 +2,7 @@ import torch
 from mipcandy import LayerT
 from torch import nn
 from typing import Literal
-from mipcandy_bundles.unet.unet import UNetUpsample
+from mipcandy_bundles.unet.unet import UNetUpsample, UNetDoubleConv
 
 
 class AttentionGate(nn.Module):
@@ -81,8 +81,9 @@ class UNetAttentionUpsample(UNetUpsample):
                  conv: LayerT = LayerT(nn.Conv2d), 
                  norm: LayerT = LayerT(nn.InstanceNorm2d, num_features="in_ch", affine=True),
                  linear: bool = True, num_dims: Literal[2, 3],
-                 inter_ch_ratio: int = 2) -> None:
-        super().__init__(up_ch, skip_ch, out_ch, conv=conv, norm=norm, linear=linear, num_dims=num_dims)
+                 inter_ch_ratio: int = 2, conv_block: LayerT = LayerT(UNetDoubleConv)) -> None:
+        super().__init__(up_ch, skip_ch, out_ch, conv=conv, norm=norm, linear=linear, 
+                         num_dims=num_dims, conv_block=conv_block)
 
         eff_up_ch = up_ch if linear else (up_ch // 2)
         expected_in_ch = eff_up_ch + skip_ch
