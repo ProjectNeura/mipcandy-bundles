@@ -44,15 +44,15 @@ class UNetResidualConv(nn.Module):
     def __init__(self, in_ch: int, out_ch: int, *, mid_ch: int | None = None,
                  conv: LayerT = LayerT(nn.Conv2d),
                  norm: LayerT = LayerT(nn.InstanceNorm2d, num_features="in_ch", affine=True),
-                 act: LayerT = LayerT(nn.ReLU, inplace=True)) -> None:
+                 act: LayerT = LayerT(nn.ReLU, inplace=True), bias: bool = True) -> None:
         super().__init__()
         if mid_ch is None:
             mid_ch = out_ch
 
-        self.conv1: nn.Module = conv.assemble(in_ch, mid_ch, kernel_size=3, padding=1, bias=False)
+        self.conv1: nn.Module = conv.assemble(in_ch, mid_ch, kernel_size=3, padding=1, bias=bias)
         self.norm1: nn.Module = norm.assemble(in_ch=mid_ch)
         self.act1: nn.Module = act.assemble()
-        self.conv2: nn.Module = conv.assemble(mid_ch, out_ch, kernel_size=3, padding=1, bias=False)
+        self.conv2: nn.Module = conv.assemble(mid_ch, out_ch, kernel_size=3, padding=1, bias=bias)
         self.norm2: nn.Module = norm.assemble(in_ch=out_ch)
         self.act2: nn.Module = act.assemble()
         self.shortcut: nn.Module
