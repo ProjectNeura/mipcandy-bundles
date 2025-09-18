@@ -128,8 +128,19 @@ class UNet(nn.Module):
 
 def make_unet2d(in_ch: int, num_classes: int, *, hidden_chs: Sequence[int] = (32, 64, 128, 256, 512, 512, 512, 512),
                 linear: bool = False) -> UNet:
-    return UNet(in_ch, num_classes, hidden_chs, linear=linear)
+    return UNet(in_ch, num_classes, hidden_chs, linear=linear, norm=LayerT(nn.InstanceNorm2d, num_features="in_ch"))
 
+def make_unet2d_resconv(in_ch: int, num_classes: int, *, hidden_chs: Sequence[int] = (32, 64, 128, 256, 512, 512, 512, 512),
+                linear: bool = False) -> UNet:
+    from mipcandy_bundles.unet import UNetResidualConv
+    return UNet(in_ch, num_classes, hidden_chs, linear=linear, norm=LayerT(nn.InstanceNorm2d, num_features="in_ch"),
+                conv_block=LayerT(UNetResidualConv))
+
+def make_unet2d_attnupsample(in_ch: int, num_classes: int, *, hidden_chs: Sequence[int] = (32, 64, 128, 256, 512, 512, 512, 512),
+                linear: bool = False) -> UNet:
+    from mipcandy_bundles.unet import UNetAttentionUpsample
+    return UNet(in_ch, num_classes, hidden_chs, linear=linear, norm=LayerT(nn.InstanceNorm2d, num_features="in_ch"),
+                upsample=LayerT(UNetAttentionUpsample))
 
 def make_unet3d(in_ch: int, num_classes: int, *, hidden_chs: Sequence[int] = (32, 64, 128, 256, 320),
                 linear: bool = False) -> UNet:
@@ -142,12 +153,24 @@ if __name__ == "__main__":
 
     model = make_unet2d(3, 1)
     result_2d = sanity_check(model, (3, 256, 256))
-    print(result_2d.layer_stats)
+    # print(result_2d.layer_stats)
     print(result_2d)
     print(result_2d.output.shape)
+    
+    model = make_unet2d_resconv(3, 1)
+    result_2d_res = sanity_check(model, (3, 256, 256))
+    # print(result_2d_res.layer_stats)
+    print(result_2d_res)
+    print(result_2d_res.output.shape)
+    
+    model = make_unet2d_attnupsample(3, 1)
+    result_2d_attn = sanity_check(model, (3, 256, 256))
+    # print(result_2d_attn.layer_stats)
+    print(result_2d_attn)
+    print(result_2d_attn.output.shape)
 
     model = make_unet3d(4, 1)
     result_3d = sanity_check(model, (4, 64, 192, 192))
-    print(result_3d.layer_stats)
+    # print(result_3d.layer_stats)
     print(result_3d)
     print(result_3d.output.shape)
