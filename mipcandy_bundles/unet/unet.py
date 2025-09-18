@@ -155,24 +155,24 @@ if __name__ == "__main__":
 
     model = make_unet2d(3, 1)
     result_2d = sanity_check(model, (3, 256, 256))
-    # print(result_2d.layer_stats)
+    print(result_2d.layer_stats)
     print(result_2d)
     print(result_2d.output.shape)
     
     model = make_unet2d_resconv(3, 1)
     result_2d_res = sanity_check(model, (3, 256, 256))
-    # print(result_2d_res.layer_stats)
+    print(result_2d_res.layer_stats)
     print(result_2d_res)
     print(result_2d_res.output.shape)
     
     model = make_unet2d_attnupsample(3, 1)
     result_2d_attn = sanity_check(model, (3, 256, 256))
-    # print(result_2d_attn.layer_stats)
+    print(result_2d_attn.layer_stats)
     print(result_2d_attn)
     print(result_2d_attn.output.shape)
 
     model = make_unet3d(4, 1)
     result_3d = sanity_check(model, (4, 64, 192, 192))
-    # print(result_3d.layer_stats)
+    print(result_3d.layer_stats)
     print(result_3d)
     print(result_3d.output.shape)
