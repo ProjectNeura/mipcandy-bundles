@@ -128,7 +128,7 @@ class UNet(nn.Module):
 
 def make_unet2d(in_ch: int, num_classes: int, *, hidden_chs: Sequence[int] = (32, 64, 128, 256, 512, 512, 512, 512),
                 linear: bool = False) -> UNet:
-    return UNet(in_ch, num_classes, hidden_chs, linear=linear)
+    return UNet(in_ch, num_classes, hidden_chs, linear=linear, norm=LayerT(nn.InstanceNorm2d, num_features="in_ch"))
 
 
 def make_unet3d(in_ch: int, num_classes: int, *, hidden_chs: Sequence[int] = (32, 64, 128, 256, 320),
