@@ -37,7 +37,7 @@ class UNETR(nn.Module):
         hidden_size: int = 768,
         mlp_dim: int = 3072,
         num_heads: int = 12,
-        pos_embed: str = "perceptron",
+        proj_type: str = "conv",
         norm_name: tuple | str = "instance",
         conv_block: bool = False,
         res_block: bool = True,
@@ -63,7 +63,8 @@ class UNETR(nn.Module):
             hidden_size: dimension of hidden layer.
             mlp_dim: dimension of feedforward layer.
             num_heads: number of attention heads.
-            pos_embed: position embedding layer type.
+            proj_type: patch embedding layer type ("conv" or "perceptron").
+                       Renamed from pos_embed since MONAI 1.3.0.
             norm_name: feature normalization type and arguments.
             conv_block: bool argument to determine if convolutional block is used.
             res_block: bool argument to determine if residual block is used.
@@ -74,24 +75,16 @@ class UNETR(nn.Module):
             # for single channel input 4-channel output with patch size of (96,96,96), feature size of 32 and batch norm
             >>> net = UNETR(in_channels=1, out_channels=4, img_size=(96,96,96), feature_size=32, norm_name='batch')
 
-            # for 4-channel input 3-channel output with patch size of (128,128,128), conv position embedding and instance norm
-            >>> net = UNETR(in_channels=4, out_channels=3, img_size=(128,128,128), pos_embed='conv', norm_name='instance')
+            # for 4-channel input 3-channel output with patch size of (128,128,128), conv projection type and instance norm
+            >>> net = UNETR(in_channels=4, out_channels=3, img_size=(128,128,128), proj_type='conv', norm_name='instance')
 
         """
 
         super().__init__()
 
-        if not (0 <= dropout_rate <= 1):
-            raise AssertionError("dropout_rate should be between 0 and 1.")
-
-        if hidden_size % num_heads != 0:
-            raise AssertionError("hidden size should be divisible by num_heads.")
-
-        if pos_embed not in ["conv", "perceptron"]:
-            raise KeyError(f"Position embedding layer of type {pos_embed} is not supported.")
-
-        proj_type = "conv" if pos_embed == "conv" else "perceptron"
-        pos_embed_type = "learnable"
+        assert 0 <= dropout_rate <= 1, "dropout_rate should be between 0 and 1."
+        assert hidden_size % num_heads == 0, "hidden size should be divisible by num_heads."
+        assert proj_type in ["conv", "perceptron"], f"Projection type {proj_type} is not supported. Use 'conv' or 'perceptron'."
 
         self.num_layers = 12
         self.patch_size = (16, 16, 16)
@@ -111,7 +104,6 @@ class UNETR(nn.Module):
             num_layers=self.num_layers,
             num_heads=num_heads,
             proj_type=proj_type,
-            pos_embed_type=pos_embed_type,
             classification=self.classification,
             dropout_rate=dropout_rate,
         )
@@ -246,7 +238,7 @@ class UNETR(nn.Module):
 
 def make_unetr(in_channels: int, out_channels: int, img_size: tuple[int, int, int],
                *, feature_size: int = 16, hidden_size: int = 768, mlp_dim: int = 3072,
-               num_heads: int = 12, pos_embed: str = "perceptron",
+               num_heads: int = 12, proj_type: str = "conv",
                norm_name: tuple | str = "instance", conv_block: bool = False,
                res_block: bool = True, dropout_rate: float = 0.0) -> UNETR:
     return UNETR(
@@ -257,7 +249,7 @@ def make_unetr(in_channels: int, out_channels: int, img_size: tuple[int, int, in
         hidden_size=hidden_size,
         mlp_dim=mlp_dim,
         num_heads=num_heads,
-        pos_embed=pos_embed,
+        proj_type=proj_type,
         norm_name=norm_name,
         conv_block=conv_block,
         res_block=res_block,
