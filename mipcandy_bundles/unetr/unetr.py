@@ -90,8 +90,7 @@ class UNETR(nn.Module):
         if pos_embed not in ["conv", "perceptron"]:
             raise KeyError(f"Position embedding layer of type {pos_embed} is not supported.")
 
-        # Map old pos_embed parameter to new MONAI ViT parameters
-        proj_type = "conv" if pos_embed == "conv" else "conv"  # perceptron maps to conv in new MONAI
+        proj_type = "conv" if pos_embed == "conv" else "perceptron"
         pos_embed_type = "learnable"
 
         self.num_layers = 12
@@ -207,7 +206,6 @@ class UNETR(nn.Module):
     def load_from(self, weights):
         with torch.no_grad():
             res_weight = weights
-            # copy weights from patch embedding
             for i in weights["state_dict"]:
                 print(i)
             self.vit.patch_embedding.position_embeddings.copy_(
@@ -223,11 +221,9 @@ class UNETR(nn.Module):
                 weights["state_dict"]["module.transformer.patch_embedding.patch_embeddings.1.bias"]
             )
 
-            # copy weights from  encoding blocks (default: num of blocks: 12)
             for bname, block in self.vit.blocks.named_children():
                 print(block)
                 block.loadFrom(weights, n_block=bname)
-            # last norm layer of transformer
             self.vit.norm.weight.copy_(weights["state_dict"]["module.transformer.norm.weight"])
             self.vit.norm.bias.copy_(weights["state_dict"]["module.transformer.norm.bias"])
 
