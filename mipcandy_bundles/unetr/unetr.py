@@ -13,8 +13,6 @@
 # Original source: https://github.com/Project-MONAI/research-contributions/blob/main/UNETR/BTCV/networks/unetr.py
 # Modifications: Adapted for MIPCandy framework with LayerT integration and MONAI 1.5.0 compatibility
 
-from typing import Tuple, Union
-
 import torch
 import torch.nn as nn
 from mipcandy import LayerT
@@ -34,13 +32,13 @@ class UNETR(nn.Module):
         self,
         in_channels: int,
         out_channels: int,
-        img_size: Tuple[int, int, int],
+        img_size: tuple[int, int, int],
         feature_size: int = 16,
         hidden_size: int = 768,
         mlp_dim: int = 3072,
         num_heads: int = 12,
         pos_embed: str = "perceptron",
-        norm_name: Union[Tuple, str] = "instance",
+        norm_name: tuple | str = "instance",
         conv_block: bool = False,
         res_block: bool = True,
         dropout_rate: float = 0.0,
@@ -250,10 +248,10 @@ class UNETR(nn.Module):
         logits = self.out(out)
         return logits
 
-def make_unetr(in_channels: int, out_channels: int, img_size: Tuple[int, int, int],
+def make_unetr(in_channels: int, out_channels: int, img_size: tuple[int, int, int],
                *, feature_size: int = 16, hidden_size: int = 768, mlp_dim: int = 3072,
                num_heads: int = 12, pos_embed: str = "perceptron",
-               norm_name: Union[Tuple, str] = "instance", conv_block: bool = False,
+               norm_name: tuple | str = "instance", conv_block: bool = False,
                res_block: bool = True, dropout_rate: float = 0.0) -> UNETR:
     return UNETR(
         in_channels=in_channels,
