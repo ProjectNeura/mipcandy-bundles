@@ -6,7 +6,7 @@ from torch import nn
 from mipcandy_bundles.unetpp import UNetPP
 
 
-class UNetPredictor(Predictor):
+class UNetPPPredictor(Predictor):
     in_ch: int = 1
     num_classes: int = 1
 
