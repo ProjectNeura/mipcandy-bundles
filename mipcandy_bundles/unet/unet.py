@@ -77,8 +77,8 @@ class UNetOut(nn.Module):
 class UNet(nn.Module):
     def __init__(self, in_ch: int, num_classes: int, hidden_chs: Sequence[int], *, num_dims: Literal[2, 3] = 2,
                  linear: bool = False, conv: LayerT = LayerT(nn.Conv2d), downsample: LayerT = LayerT(UNetDownsample),
-                 upsample: LayerT = LayerT(UNetUpsample), norm: LayerT = LayerT(nn.InstanceNorm2d, num_features="in_ch"),
-                 max_pool: LayerT = LayerT(nn.MaxPool2d)) -> None:
+                 upsample: LayerT = LayerT(UNetUpsample), max_pool: LayerT = LayerT(nn.MaxPool2d),
+                 norm: LayerT = LayerT(nn.InstanceNorm2d, num_features="in_ch")) -> None:
         super().__init__()
         self.hidden_chs: Sequence[int] = hidden_chs
         self.num_layers = len(hidden_chs) - 1
