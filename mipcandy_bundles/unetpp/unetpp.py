@@ -94,7 +94,7 @@ class UNetPP(nn.Module):
                 inputs.append(upsampled)
                 cache[i][j] = self.convs[i][j](torch.cat(inputs, dim=1))
 
-        if self.deep_supervision:
+        if self.deep_supervision and self.training:
             outputs = []
             for j in range(1, self.num_layers + 1):
                 outputs.append(self.finals[j-1](cache[0][j]))
