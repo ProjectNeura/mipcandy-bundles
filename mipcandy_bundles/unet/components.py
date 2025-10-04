@@ -16,7 +16,6 @@ class AttentionGate(nn.Module):
             conv = LayerT(nn.Conv3d) if num_dims == 3 else LayerT(nn.Conv2d)
         if norm is None:
             norm = LayerT(nn.InstanceNorm3d, num_features="in_ch", affine=True) if num_dims == 3 else LayerT(nn.InstanceNorm2d, affine=True)
-
         self.W_g: nn.Module = nn.Sequential(
             conv.assemble(gate_ch, inter_ch, kernel_size=1, stride=1, padding=0, bias=False),
             norm.assemble(in_ch=inter_ch)
@@ -25,7 +24,6 @@ class AttentionGate(nn.Module):
             conv.assemble(skip_ch, inter_ch, kernel_size=1, stride=1, padding=0, bias=False),
             norm.assemble(in_ch=inter_ch)
         )
-
         self.psi: nn.Module = nn.Sequential(
             conv.assemble(inter_ch, 1, kernel_size=1, stride=1, padding=0, bias=True),
             nn.Sigmoid()
@@ -48,7 +46,6 @@ class UNetResidualConv(nn.Module):
         super().__init__()
         if mid_ch is None:
             mid_ch = out_ch
-
         self.conv1: nn.Module = conv.assemble(in_ch, mid_ch, kernel_size=3, padding=1, bias=bias)
         self.norm1: nn.Module = norm.assemble(in_ch=mid_ch)
         self.act1: nn.Module = act.assemble()
@@ -56,7 +53,6 @@ class UNetResidualConv(nn.Module):
         self.norm2: nn.Module = norm.assemble(in_ch=out_ch)
         self.act2: nn.Module = act.assemble()
         self.shortcut: nn.Module
-
         if in_ch != out_ch:
             self.shortcut = conv.assemble(in_ch, out_ch, kernel_size=1, bias=False)
         else:
@@ -70,7 +66,6 @@ class UNetResidualConv(nn.Module):
         x = self.act1(x)
         x = self.conv2(x)
         x = self.norm2(x)
-
         x = x + residual
         x = self.act2(x)
         return x
@@ -90,7 +85,6 @@ class UNetAttentionUpsample(UNetUpsample):
         first_conv = getattr(self.conv, 'conv1', None)
         if first_conv is not None and hasattr(first_conv, 'in_channels'):
             assert first_conv.in_channels == expected_in_ch, f"Channel mismatch: expected {expected_in_ch}, got {first_conv.in_channels}"
-
         inter_ch = max(1, skip_ch // inter_ch_ratio)
         self.attention_gate: nn.Module = AttentionGate(eff_up_ch, skip_ch, inter_ch,
                                                       num_dims=num_dims, conv=conv, norm=norm)
