@@ -11,7 +11,6 @@ class AttentionGate(nn.Module):
                  conv: LayerT | None = None,
                  norm: LayerT | None = None) -> None:
         super().__init__()
-
         if conv is None:
             conv = LayerT(nn.Conv3d) if num_dims == 3 else LayerT(nn.Conv2d)
         if norm is None:
@@ -60,7 +59,6 @@ class UNetResidualConv(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = self.shortcut(x)
-
         x = self.conv1(x)
         x = self.norm1(x)
         x = self.act1(x)
@@ -79,7 +77,6 @@ class UNetAttentionUpsample(UNetUpsample):
                  inter_ch_ratio: int = 2, conv_block: LayerT = LayerT(UNetDoubleConv)) -> None:
         super().__init__(up_ch, skip_ch, out_ch, conv=conv, norm=norm, linear=linear, 
                          num_dims=num_dims, conv_block=conv_block)
-
         eff_up_ch = up_ch if linear else (up_ch // 2)
         expected_in_ch = eff_up_ch + skip_ch
         first_conv = getattr(self.conv, 'conv1', None)
