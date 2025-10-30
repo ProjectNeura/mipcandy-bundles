@@ -8,7 +8,7 @@ from typing import Literal, Sequence
 class MedNeXtBlock(nn.Module):
     def __init__(self, in_ch: int, out_ch: int, *, exp_r: int = 4, kernel_size: int = 7, residual: bool = True,
                  num_dims: Literal[2, 3] = 3, conv: LayerT = LayerT(nn.Conv3d),
-                 norm: LayerT = LayerT(nn.GroupNorm),
+                 norm: LayerT = LayerT(nn.GroupNorm, num_groups="in_ch", num_channels="in_ch"),
                  act: LayerT = LayerT(nn.GELU)) -> None:
         super().__init__()
 
@@ -16,7 +16,7 @@ class MedNeXtBlock(nn.Module):
         mid_ch = exp_r * in_ch
 
         self.conv1: nn.Module = conv.assemble(in_ch, in_ch, kernel_size=kernel_size, padding=kernel_size // 2, groups=in_ch)
-        self.norm: nn.Module = norm.assemble(in_ch, in_ch)
+        self.norm: nn.Module = norm.update(num_groups=in_ch).assemble(in_ch=in_ch)
         self.conv2: nn.Module = conv.assemble(in_ch, mid_ch, kernel_size=1)
         self.act: nn.Module = act.assemble()
         self.conv3: nn.Module = conv.assemble(mid_ch, out_ch, kernel_size=1)
@@ -48,7 +48,7 @@ class MedNeXtBlock(nn.Module):
 class MedNeXtDownBlock(MedNeXtBlock):
     def __init__(self, in_ch: int, out_ch: int, *, exp_r: int = 4, kernel_size: int = 7, residual: bool = False,
                  num_dims: Literal[2, 3] = 3, conv: LayerT = LayerT(nn.Conv3d),
-                 norm: LayerT = LayerT(nn.GroupNorm),
+                 norm: LayerT = LayerT(nn.GroupNorm, num_groups="in_ch", num_channels="in_ch"),
                  act: LayerT = LayerT(nn.GELU)) -> None:
         super().__init__(in_ch, out_ch, exp_r=exp_r, kernel_size=kernel_size, residual=False,
                         num_dims=num_dims, conv=conv, norm=norm, act=act)
@@ -73,7 +73,7 @@ class MedNeXtUpBlock(MedNeXtBlock):
     def __init__(self, in_ch: int, out_ch: int, *, exp_r: int = 4, kernel_size: int = 7, residual: bool = False,
                  num_dims: Literal[2, 3] = 3, conv: LayerT = LayerT(nn.Conv3d),
                  transpose_conv: LayerT = LayerT(nn.ConvTranspose3d),
-                 norm: LayerT = LayerT(nn.GroupNorm),
+                 norm: LayerT = LayerT(nn.GroupNorm, num_groups="in_ch", num_channels="in_ch"),
                  act: LayerT = LayerT(nn.GELU)) -> None:
         super().__init__(in_ch, out_ch, exp_r=exp_r, kernel_size=kernel_size, residual=False,
                         num_dims=num_dims, conv=conv, norm=norm, act=act)
@@ -115,7 +115,7 @@ class MedNeXt(nn.Module):
                  dropout: float = 0, block_counts: Sequence[int] | None = None, residual: bool = True,
                  resample_residual: bool = False, conv: LayerT = LayerT(nn.Conv3d),
                  transpose_conv: LayerT = LayerT(nn.ConvTranspose3d),
-                 norm: LayerT = LayerT(nn.GroupNorm),
+                 norm: LayerT = LayerT(nn.GroupNorm, num_groups="in_ch", num_channels="in_ch"),
                  act: LayerT = LayerT(nn.GELU)) -> None:
         super().__init__()
 
@@ -218,7 +218,7 @@ def make_mednext2d(in_ch: int, num_classes: int, *, hidden_chs: Sequence[int] = 
                    deep_supervision=deep_supervision, dropout=dropout, block_counts=block_counts,
                    residual=residual, resample_residual=resample_residual,
                    conv=LayerT(nn.Conv2d), transpose_conv=LayerT(nn.ConvTranspose2d),
-                   norm=LayerT(nn.GroupNorm))
+                   norm=LayerT(nn.GroupNorm, num_groups="in_ch", num_channels="in_ch"))
 
 
 def make_mednext3d(in_ch: int, num_classes: int, *, hidden_chs: Sequence[int] = (32, 64, 128, 256, 512),
@@ -229,7 +229,7 @@ def make_mednext3d(in_ch: int, num_classes: int, *, hidden_chs: Sequence[int] = 
                    deep_supervision=deep_supervision, dropout=dropout, block_counts=block_counts,
                    residual=residual, resample_residual=resample_residual,
                    conv=LayerT(nn.Conv3d), transpose_conv=LayerT(nn.ConvTranspose3d),
-                   norm=LayerT(nn.GroupNorm))
+                   norm=LayerT(nn.GroupNorm, num_groups="in_ch", num_channels="in_ch"))
 
 
 if __name__ == "__main__":
