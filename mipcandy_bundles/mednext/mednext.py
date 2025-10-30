@@ -1,9 +1,7 @@
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from mipcandy import LayerT
-from typing import Literal, Sequence
-
+from typing import Literal, Sequence, override
 
 class MedNeXtBlock(nn.Module):
     def __init__(self, in_ch: int, out_ch: int, *, exp_r: int = 4, kernel_size: int = 7, residual: bool = True,
@@ -11,16 +9,13 @@ class MedNeXtBlock(nn.Module):
                  norm: LayerT = LayerT(nn.GroupNorm, num_groups="in_ch", num_channels="in_ch"),
                  act: LayerT = LayerT(nn.GELU)) -> None:
         super().__init__()
-
-        self.residual = residual
+        self.residual: bool = residual
         mid_ch = exp_r * in_ch
-
         self.conv1: nn.Module = conv.assemble(in_ch, in_ch, kernel_size=kernel_size, padding=kernel_size // 2, groups=in_ch)
         self.norm: nn.Module = norm.update(num_groups=in_ch).assemble(in_ch=in_ch)
         self.conv2: nn.Module = conv.assemble(in_ch, mid_ch, kernel_size=1)
         self.act: nn.Module = act.assemble()
         self.conv3: nn.Module = conv.assemble(mid_ch, out_ch, kernel_size=1)
-
         spatial_dims = (1,) * num_dims
         self.grn_beta = nn.Parameter(torch.zeros(1, mid_ch, *spatial_dims))
         self.grn_gamma = nn.Parameter(torch.zeros(1, mid_ch, *spatial_dims))
@@ -31,17 +26,13 @@ class MedNeXtBlock(nn.Module):
         x = self.norm(x)
         x = self.conv2(x)
         x = self.act(x)
-
         spatial_dims = tuple(range(2, x.ndim))
         gx = torch.norm(x, p=2, dim=spatial_dims, keepdim=True)
         nx = gx / (gx.mean(dim=1, keepdim=True) + 1e-6)
         x = self.grn_gamma * (x * nx) + self.grn_beta + x
-
         x = self.conv3(x)
-
         if self.residual:
             x = x + residual
-
         return x
 
 
@@ -52,20 +43,18 @@ class MedNeXtDownBlock(MedNeXtBlock):
                  act: LayerT = LayerT(nn.GELU)) -> None:
         super().__init__(in_ch, out_ch, exp_r=exp_r, kernel_size=kernel_size, residual=False,
                         num_dims=num_dims, conv=conv, norm=norm, act=act)
-
         self.conv1: nn.Module = conv.assemble(in_ch, in_ch, kernel_size=kernel_size, stride=2,
                                              padding=kernel_size // 2, groups=in_ch)
-        self.resample_residual = residual
+        self.resample_residual: bool = residual
         if residual:
             self.res_conv: nn.Module = conv.assemble(in_ch, out_ch, kernel_size=1, stride=2)
 
+    @override
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         identity = x
         x = super().forward(x)
-
         if self.resample_residual:
             x = x + self.res_conv(identity)
-
         return x
 
 
@@ -77,27 +66,25 @@ class MedNeXtUpBlock(MedNeXtBlock):
                  act: LayerT = LayerT(nn.GELU)) -> None:
         super().__init__(in_ch, out_ch, exp_r=exp_r, kernel_size=kernel_size, residual=False,
                         num_dims=num_dims, conv=conv, norm=norm, act=act)
-
         self.conv1: nn.Module = transpose_conv.assemble(in_ch, in_ch, kernel_size=kernel_size, stride=2,
                                                        padding=kernel_size // 2, groups=in_ch)
-        self.num_dims = num_dims
-        self.resample_residual = residual
+        self.num_dims: int = num_dims
+        self.resample_residual: bool = residual
         if residual:
             self.res_conv: nn.Module = transpose_conv.assemble(in_ch, out_ch, kernel_size=1, stride=2)
 
+    @override
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         identity = x
         x = super().forward(x)
-
         padding = (1, 0) * self.num_dims
-        x = F.pad(x, padding)
-
+        x = nn.functional.pad(x, padding)
         if self.resample_residual:
             res = self.res_conv(identity)
-            res = F.pad(res, padding)
+            res = nn.functional.pad(res, padding)
             x = x + res
-
         return x
+
 
 class MedNeXtOut(nn.Module):
     def __init__(self, in_ch: int, out_ch: int, *, dropout: float = 0,
@@ -109,6 +96,7 @@ class MedNeXtOut(nn.Module):
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         return self.dropout(self.conv(x))
 
+
 class MedNeXt(nn.Module):
     def __init__(self, in_ch: int, num_classes: int, hidden_chs: Sequence[int], *, num_dims: Literal[2, 3] = 3,
                  exp_r: int | Sequence[int] = 4, kernel_size: int = 7, deep_supervision: bool = False,
@@ -118,24 +106,17 @@ class MedNeXt(nn.Module):
                  norm: LayerT = LayerT(nn.GroupNorm, num_groups="in_ch", num_channels="in_ch"),
                  act: LayerT = LayerT(nn.GELU)) -> None:
         super().__init__()
-
-        self.num_layers = len(hidden_chs)
-        self.deep_supervision = deep_supervision
-
+        self.num_layers: int = len(hidden_chs)
+        self.deep_supervision: bool = deep_supervision
         if block_counts is None:
             block_counts = [2] * (2 * self.num_layers - 1)
-
-        assert len(block_counts) == 2 * self.num_layers - 1, \
-            f"block_counts must have {2 * self.num_layers - 1} elements for {self.num_layers} layers, got {len(block_counts)}"
-
+        if len(block_counts) != 2 * self.num_layers - 1:
+            raise ValueError(f"block_counts must have {2 * self.num_layers - 1} elements for {self.num_layers} layers, got {len(block_counts)}")
         if isinstance(exp_r, int):
             exp_r = [exp_r] * len(block_counts)
-
         self.stem: nn.Module = conv.assemble(in_ch, hidden_chs[0], kernel_size=1)
-
-        self.enc_blocks = nn.ModuleList()
-        self.downs = nn.ModuleList()
-
+        self.enc_blocks: nn.ModuleList = nn.ModuleList()
+        self.downs: nn.ModuleList = nn.ModuleList()
         for i in range(self.num_layers - 1):
             enc_block = nn.Sequential(*[
                 MedNeXtBlock(hidden_chs[i], hidden_chs[i], exp_r=exp_r[i], kernel_size=kernel_size,
@@ -147,17 +128,14 @@ class MedNeXt(nn.Module):
                                    kernel_size=kernel_size, residual=resample_residual, num_dims=num_dims,
                                    conv=conv, norm=norm, act=act)
             self.downs.append(down)
-
-        bottleneck_idx = self.num_layers - 1
-        self.bottleneck = nn.Sequential(*[
+        bottleneck_idx: int = self.num_layers - 1
+        self.bottleneck: nn.Sequential = nn.Sequential(*[
             MedNeXtBlock(hidden_chs[-1], hidden_chs[-1], exp_r=exp_r[bottleneck_idx], kernel_size=kernel_size,
                        residual=residual, num_dims=num_dims, conv=conv, norm=norm, act=act)
             for _ in range(block_counts[bottleneck_idx])
         ])
-
-        self.ups = nn.ModuleList()
-        self.dec_blocks = nn.ModuleList()
-
+        self.ups: nn.ModuleList = nn.ModuleList()
+        self.dec_blocks: nn.ModuleList = nn.ModuleList()
         for i in range(self.num_layers - 1):
             dec_idx = self.num_layers + i
             layer_idx = self.num_layers - 2 - i
@@ -171,8 +149,7 @@ class MedNeXt(nn.Module):
                 for _ in range(block_counts[dec_idx])
             ])
             self.dec_blocks.append(dec_block)
-
-        self.out = MedNeXtOut(hidden_chs[0], num_classes, dropout=dropout, transpose_conv=transpose_conv)
+        self.out: nn.Module = MedNeXtOut(hidden_chs[0], num_classes, dropout=dropout, transpose_conv=transpose_conv)
         if self.deep_supervision:
             self.out_layers = nn.ModuleList([
                 MedNeXtOut(hidden_chs[i], num_classes, dropout=dropout, transpose_conv=transpose_conv)
@@ -181,19 +158,15 @@ class MedNeXt(nn.Module):
 
     def forward(self, x: torch.Tensor) -> torch.Tensor | list[torch.Tensor]:
         x = self.stem(x)
-
         skip_connections = []
         for enc_block, down in zip(self.enc_blocks, self.downs):
             x = enc_block(x)
             skip_connections.append(x)
             x = down(x)
-
         x = self.bottleneck(x)
-
         if self.deep_supervision and self.training:
             ds_outputs = []
             ds_outputs.append(self.out_layers[-1](x))
-
         for i, (up, dec_block) in enumerate(zip(self.ups, self.dec_blocks)):
             skip_idx = len(skip_connections) - 1 - i
             x = up(x)
@@ -201,9 +174,7 @@ class MedNeXt(nn.Module):
             x = dec_block(x)
             if self.deep_supervision and self.training and skip_idx > 0:
                 ds_outputs.append(self.out_layers[skip_idx](x))
-
         x = self.out(x)
-
         if self.deep_supervision and self.training:
             return ds_outputs[::-1] + [x]
         else:

@@ -1,11 +1,7 @@
 from typing import override
-
-from mipcandy import SegmentationTrainer
+from mipcandy import SegmentationTrainer, TrainerToolbox
 import torch
 from torch import nn
-import torch.nn.functional as F
-from mipcandy import TrainerToolbox
-
 from mipcandy_bundles.mednext.mednext import make_mednext2d, make_mednext3d
 
 
@@ -28,7 +24,7 @@ class MedNeXtTrainer(SegmentationTrainer):
         if self.deep_supervision:
             total_loss = 0
             for output in outputs:
-                target = F.interpolate(labels.float(), size=output.shape[2:], mode='nearest')
+                target = nn.functional.interpolate(labels.float(), size=output.shape[2:], mode='nearest')
                 loss, _ = toolbox.criterion(output, target)
                 total_loss += loss
             total_loss /= len(outputs)
