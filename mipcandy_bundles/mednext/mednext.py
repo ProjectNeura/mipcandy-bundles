@@ -10,13 +10,13 @@ class MedNeXtBlock(nn.Module):
                  act: LayerT = LayerT(nn.GELU)) -> None:
         super().__init__()
         self.residual: bool = residual
-        mid_ch = exp_r * in_ch
+        mid_ch: int = exp_r * in_ch
         self.conv1: nn.Module = conv.assemble(in_ch, in_ch, kernel_size=kernel_size, padding=kernel_size // 2, groups=in_ch)
         self.norm: nn.Module = norm.update(num_groups=in_ch).assemble(in_ch=in_ch)
         self.conv2: nn.Module = conv.assemble(in_ch, mid_ch, kernel_size=1)
         self.act: nn.Module = act.assemble()
         self.conv3: nn.Module = conv.assemble(mid_ch, out_ch, kernel_size=1)
-        spatial_dims = (1,) * num_dims
+        spatial_dims: Sequence[int] = (1,) * num_dims
         self.grn_beta = nn.Parameter(torch.zeros(1, mid_ch, *spatial_dims))
         self.grn_gamma = nn.Parameter(torch.zeros(1, mid_ch, *spatial_dims))
 
