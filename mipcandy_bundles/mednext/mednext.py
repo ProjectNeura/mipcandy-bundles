@@ -206,15 +206,13 @@ def make_mednext3d(in_ch: int, num_classes: int, *, hidden_chs: Sequence[int] = 
 if __name__ == "__main__":
     from mipcandy import sanity_check
 
-    print("Testing 2D Model (without deep supervision)")
-    model_2d = make_mednext2d(1, 13)
+    model_2d = make_mednext2d(3, 1)
     result_2d = sanity_check(model_2d, (1, 128, 128))
     print(result_2d.layer_stats)
     print(result_2d)
     print(f"Output shape: {result_2d.output.shape}")
 
-    print("Testing 3D Model (without deep supervision)")
-    model_3d = make_mednext3d(1, 13)
+    model_3d = make_mednext3d(3, 1)
     result_3d = sanity_check(model_3d, (1, 64, 64, 64))
     print(result_3d.layer_stats)
     print(result_3d)
