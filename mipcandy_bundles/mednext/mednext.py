@@ -17,8 +17,8 @@ class MedNeXtBlock(nn.Module):
         self.act: nn.Module = act.assemble()
         self.conv3: nn.Module = conv.assemble(mid_ch, out_ch, kernel_size=1)
         spatial_dims: Sequence[int] = (1,) * num_dims
-        self.grn_beta = nn.Parameter(torch.zeros(1, mid_ch, *spatial_dims))
-        self.grn_gamma = nn.Parameter(torch.zeros(1, mid_ch, *spatial_dims))
+        self.grn_beta: nn.Parameter = nn.Parameter(torch.zeros(1, mid_ch, *spatial_dims))
+        self.grn_gamma: nn.Parameter = nn.Parameter(torch.zeros(1, mid_ch, *spatial_dims))
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         residual = x
