@@ -151,7 +151,7 @@ class MedNeXt(nn.Module):
             self.dec_blocks.append(dec_block)
         self.out: nn.Module = MedNeXtOut(hidden_chs[0], num_classes, dropout=dropout, transpose_conv=transpose_conv)
         if self.deep_supervision:
-            self.out_layers = nn.ModuleList([
+            self.out_layers: nn.ModuleList = nn.ModuleList([
                 MedNeXtOut(hidden_chs[i], num_classes, dropout=dropout, transpose_conv=transpose_conv)
                 for i in range(self.num_layers)
             ])
